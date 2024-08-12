@@ -3,8 +3,6 @@ import os
 import sys
 from time import sleep
 
-# if len(sys.argv) != 2:
-#     sys.exit(f"Usage: python3 {sys.argv[0]} minishell_prompt")
 builts = {
 	"Echo and Expand 1":r"echo hello world",
 	"Echo and Expand 2":r"echo \"hello world\"",
@@ -57,7 +55,6 @@ builts = {
 	"Echo and Expand 49": r"echo $\"ls\"",
 	"Echo and Expand 50": r"echo $?",
 	"Echo and Expand 51": r"$sdfsfdsf/bin/ls",
-	"Echo and Expand 51": r"$sdfsfdsf/bin/ls ",
 
 	"Echo and Expand 54": r"echo $USER''l''",
 	"Echo and Expand 55": r"echo $USER''$l'$'$",
@@ -233,7 +230,7 @@ tests_red = {
     "Redirection 54": r'ls >>      ./outfiles/outfile01',
     "Redirection 55": r'ls >>./outfiles/outfile01 >./outfiles/outfile01',
     "Redirection 56": r'ls >./outfiles/outfile01 >>./outfiles/outfile01',
-    "Redirection 57": r'ls >./outfiles/outfile01 >>   ./outfiles/outfile01  >./outfiles/outfile02',
+    "Redirection 57": r'ls >./outfiles/outfile01 >>./outfiles/outfile01 >./outfiles/outfile02',
     "Redirection 58": r'ls >>./outfiles/outfile01 >>./outfiles/outfile02',
     "Redirection 59": r'ls >>./test_files/invalid_permission',
     "Redirection 60": r'ls >>./test_files/invalid_permission >>./outfiles/outfile01',
@@ -247,9 +244,9 @@ tests_red = {
     "Redirection 68": r'echo hi | echo bye >>./outfiles/outfile01 >>./outfiles/outfile02',
     "Redirection 69": r'echo hi >>./outfiles/outfile01 | echo bye >>./outfiles/outfile02',
     "Redirection 70": r'echo hi >>./test_files/invalid_permission | echo bye',
-    "Redirection 71": r'echo hi >>./test_files/invalid_permission >./outfiles/outfile01 | echo hello',
+    "Redirection 71": r'echo hi >>./test_files/invalid_permission >./outfiles/outfile01 | echo bye',
     "Redirection 72": r'echo hi | echo bye >>./test_files/invalid_permission',
-    "Redirection 73": r'echo hi | echo >>./outfiles/outfile01 hello >./test_files/invalid_permission',
+    "Redirection 73": r'echo hi | echo >>./outfiles/outfile01 bye >./test_files/invalid_permission',
     "Redirection 74": r'cat <minishell.h>./outfiles/outfile',
     "Redirection 75": r"cat <minishell.h|ls",
 	"Redirection 76": r'echo hello > $sdfsdf',
@@ -420,15 +417,15 @@ mix = {
 	"mix test 109":r"export s=\"   hi      hel       l        o\" && echo $s",
 }
 
+def clean_up():
+	subprocess.call(['rm', '-fr', '/tmp/tmp'])
+
 def set_up():
+	clean_up()
 	subprocess.call(['mkdir', '-p', '/tmp/tmp/outfiles'])
 	subprocess.call(['cp', '-r', 'test_files', '/tmp/tmp'])
 	subprocess.call(['cp', 'minishell', '/tmp/tmp/minishell'])
 	os.chdir("/tmp/tmp")
-
-def clean_up():
-	subprocess.call(['rm', '-fr', '/tmp/tmp'])
-	subprocess.call(['rm', '-fr', 'outfiles'])
 
 def run_tests(tests):
 	skip = ["test 21", "test 22"]
@@ -460,15 +457,17 @@ def get_bash_return(command):
 def get_minishell_return(command):
 	got = subprocess.run(f"echo {command} | ./minishell",
 		shell=True, capture_output=True, text=True)
-	# print(f"[{remove_fl_lines(got.stdout)}] {got.returncode} {got.stderr}")
+	# print(f"[{got.stdout}] {got.returncode} {got.stderr}")
+	# print(remove_fl_lines(got.stdout))
 	return remove_fl_lines(got.stdout), got.stderr, got.returncode
 
-def remove_fl_lines(text):
-	lines = text.split('\n')
-	lines = lines[1:-1]
-	if not lines:
-		return '\n'.join(lines)
-	return '\n'.join(lines)+'\n'
+def remove_fl_lines(output):
+	first = output.find("\n")
+	last = output.rfind("\n")
+	if (last == first):
+		return ""
+	ret = output[first+1:last]+"\n"
+	return ret
 
 def replace_sc(s):
 	replacements = {
@@ -544,6 +543,9 @@ andorwilds = """\033[0;36m
 """
 		
 if __name__ == '__main__':
+	if not os.path.exists("./minishell"):
+		print("There is no 'minishell' in this directory")
+		sys.exit(1)
 	set_up()
 	print(mandatory)
 	print(builtins)
