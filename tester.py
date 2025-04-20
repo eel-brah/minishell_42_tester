@@ -408,7 +408,7 @@ def main():
         help="Run only tests from this category",
     )
     parser.add_argument(
-        "-t", "--test", action="store_true", help="Test number of lines that minishell add, if any"
+        "-t", "--test", action="store_true", help="Run a sample test to compare bash and minishell output"
     )
 
     args = parser.parse_args()
