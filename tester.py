@@ -424,7 +424,7 @@ def main():
         return 0
 
     cwd = os.getcwd()
-    tester = MinishellTester(cwd, args.path,  args.lines)
+    tester = MinishellTester(cwd, args.path, args.lines, args.endlines)
 
     if not tester.setup():
         return 1
