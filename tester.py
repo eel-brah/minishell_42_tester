@@ -67,9 +67,10 @@ class TestResult:
 
 
 class MinishellTester:
-    def __init__(self, cwd, minishell_path="./minishell",  lines=1):
+    def __init__(self, cwd, minishell_path="./minishell", lines=1, endlines=-1):
         self.minishell_path = minishell_path
         self.lines = lines
+        self.endlines = endlines
         self.oldwd = cwd
         self.test_result = TestResult()
         self.temp_dir = TEST_DIR 
@@ -252,7 +253,7 @@ class MinishellTester:
         lines = text.split("\n")
         if len(lines) <= 2:
             return ""
-        return "\n".join(lines[self.lines:-1]) + "\n"
+        return "\n".join(lines[self.lines:self.endlines]) + "\n"
 
     def _escape_special_chars(self, s):
         for char in "$&|'*><();#":
@@ -331,6 +332,59 @@ class MinishellTester:
         return headers.get(category, f"{Color.CYAN}{category.upper()}{Color.RESET}")
 
 
+def remove_prompt_lines(text, lines, endlines):
+    result = text.split("\n")
+    if len(result) <= 2:
+        return ""
+    return "\n".join(result[lines:endlines]) + "\n"
+
+def test(minishell_path="./minishell", lines=1, endlines=-1):
+    try:
+        result = subprocess.run(
+            f"echo 'echo hi' | {minishell_path}",
+            shell=True,
+            capture_output=True,
+        )
+        print("====== minishell =======")
+        print(f"raw stdout:\n[{result.stdout.decode('utf-8')}]\n")
+
+        actual_stdout = remove_prompt_lines(result.stdout.decode('utf-8'), lines, endlines)
+        actual_stderr = result.stderr.decode('utf-8')
+        actual_rv = result.returncode
+        print(f"stdout without prompt (what the script use):\n[{actual_stdout}]")
+        print(f"stderr:\n[{actual_stderr}]")
+        print(f"exit status:\n[{actual_rv}]")
+
+        result = subprocess.run(
+            f"echo 'echo hi' | bash", shell=True, capture_output=True,
+        )
+        print("====== bash =======")
+        expected_stdout = result.stdout.decode('utf-8')
+        expected_stderr = result.stderr.decode('utf-8')
+        expected_rv = result.returncode
+        print(f"stdout:\n[{expected_stdout}]")
+        print(f"stderr:\n[{result.stderr.decode('utf-8')}]")
+        print(f"exit status\n[{result.returncode}]")
+
+
+        success = (
+            actual_stdout == expected_stdout
+            and actual_rv == expected_rv
+            and (actual_rv == 0 or (actual_stderr and expected_stderr))
+        )
+
+        if success:
+            print(f"{Color.GREEN}Passed ✅{Color.RESET}")
+        else:
+            print(f"{Color.RED}Failed ❌{Color.RESET} 'echo hi'")
+            print(
+                f"{Color.RED}===>Expected return -- value: {expected_rv}\n{expected_stdout}"
+            )
+            print(f"===>Actual return -- value: {actual_rv}\n{actual_stdout}{Color.RESET}")
+
+    except Exception as e:
+        print(f"{Color.YELLOW}Error getting minishell output: {e}{Color.RESET}")
+        return "", "", 1
 
 def main():
     parser = argparse.ArgumentParser(description="Test minishell implementation")
@@ -344,11 +398,17 @@ def main():
         "-l", "--lines", type=int, default=1, help="Number of lines to skip"
     )
     parser.add_argument(
+        "-e", "--endlines", type=int, default=-1, help="number of lines to skip from the end"
+    )
+    parser.add_argument(
         "-c",
         "--category",
         type=str,
         choices=["builtin", "redirection", "syntax", "wildcard", "andor", "mix"],
         help="Run only tests from this category",
+    )
+    parser.add_argument(
+        "-t", "--test", action="store_true", help="Test number of lines that minishell add, if any"
     )
 
     args = parser.parse_args()
@@ -358,6 +418,10 @@ def main():
             f"{Color.RED}Error: No minishell executable found at '{args.path}'{Color.RESET}"
         )
         return 1
+
+    if args.test:
+        test(args.path, args.lines, args.endlines)
+        return 0
 
     cwd = os.getcwd()
     tester = MinishellTester(cwd, args.path,  args.lines)
